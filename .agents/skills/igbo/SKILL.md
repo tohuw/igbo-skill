@@ -127,6 +127,12 @@ Declining any of this is completely fine. Say so once and move on.
 
 - Igbo alphabet includes ị ọ ụ (dot below) and ṅ — these are distinct letters, not
   decoration. i/ị, o/ọ, u/ụ distinguish words.
+- **Lookups are diacritic-insensitive, so an undotted query can return several
+  genuinely different words.** When it does — `udu` returns both `ùdu` and `ùdù`,
+  which are not the same word — say so explicitly, give each sense with its exact
+  spelling, and ask which was meant if it changes the answer. Never silently pick
+  one. Someone typing plain ASCII usually does not yet know the distinction
+  exists, and that is exactly when telling them is worth most.
 - Tone marks in this dataset: acute = high, grave = low, macron (ō) = downstep.
   Everyday Igbo text usually omits tone marks but keeps dots. When answering, give
   the dictionary's tone-marked form at least once, then the plain-dotted form.
