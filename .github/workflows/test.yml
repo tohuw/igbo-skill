@@ -71,7 +71,10 @@ jobs:
           import json, pathlib
           skills = json.loads(pathlib.Path('.claude-plugin/plugin.json').read_text())['skills']
           for entry in skills:
-              root = pathlib.Path(entry.lstrip('./') or '.')
+              # Strip the leading './' as a prefix. Not lstrip('./') -- that
+              # strips characters, so './.agents/' loses the dot of '.agents'.
+              rel = entry[2:] if entry.startswith('./') else entry
+              root = pathlib.Path(rel or '.')
               assert (root / 'igbo' / 'SKILL.md').is_file(), f'{entry} does not contain the skill'
           print('layout OK')
           "
