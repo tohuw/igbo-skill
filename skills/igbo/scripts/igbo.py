@@ -6,7 +6,10 @@ Data: 8.2k rich headwords (word class, definitions, variations, stems),
 keys (incl. phrases), 212k English->Igbo reverse index, Nsibidi dictionary.
 
 On first use the dictionaries are downloaded from the upstream repo and
-compiled into a local SQLite database; every later run is offline.
+compiled into a local SQLite database; every later run is offline. Once the
+data is more than a week old the next query checks upstream and rebuilds only
+if the dictionaries actually changed — if that check fails, the stale data is
+served anyway rather than failing the query.
 
 Usage:
   igbo.py lookup <igbo word/phrase>   full entries, diacritic-insensitive
@@ -15,16 +18,21 @@ Usage:
   igbo.py examples <query>            search attested example sentences
   igbo.py gloss "<igbo sentence>"     per-chunk gloss (greedy longest match)
   igbo.py nsibidi <query>             Nsibidi characters by symbol/pron/meaning
-  igbo.py stats                       table counts and dataset provenance
-  igbo.py update                      rebuild if upstream dictionaries changed
+  igbo.py stats                       table counts, provenance, data age
+  igbo.py update                      rebuild now if upstream dictionaries changed
   igbo.py build [--repo PATH] [--ref REF]
                                       (re)compile the database; --repo reads a
                                       local igbo_api checkout instead of the
                                       network, --ref picks a branch/tag/commit
 
 Environment:
-  IGBO_SKILL_DB    override the database path
-  CLAUDE_PLUGIN_DATA  used automatically when running as a Claude Code plugin
+  IGBO_SKILL_DB            override the database path
+  IGBO_SKILL_MAX_AGE_DAYS  staleness threshold before an auto-check (default 7;
+                           0 disables)
+  IGBO_SKILL_NO_AUTO_UPDATE  set to skip the age check entirely
+  IGBO_SKILL_UPSTREAM      owner/repo to pull dictionaries from (for forks)
+  CLAUDE_PLUGIN_DATA       used automatically when running as a Claude Code plugin
+  GH_TOKEN / GITHUB_TOKEN  used, if present, to avoid GitHub API rate limits
 """
 
 import json
@@ -33,6 +41,7 @@ import re
 import sqlite3
 import sys
 import tempfile
+import time
 import unicodedata
 import urllib.error
 import urllib.request
@@ -49,9 +58,20 @@ for _stream in (sys.stdout, sys.stderr):
         except (ValueError, OSError):  # already detached or not a text stream
             pass
 
-UPSTREAM = "nkowaokwu/igbo_api"
+UPSTREAM = os.environ.get("IGBO_SKILL_UPSTREAM") or "nkowaokwu/igbo_api"
 DICT_PATH = "src/dictionaries"
 DEFAULT_REF = "master"
+
+# How stale the data may get before a query checks upstream for itself. The
+# check is a single API call and only rebuilds if the dictionaries actually
+# moved, so the usual cost of being out of date is one HTTP round-trip a week.
+MAX_AGE_DAYS = float(os.environ.get("IGBO_SKILL_MAX_AGE_DAYS") or 7)
+# When that check cannot be made (offline, rate-limited), retry sooner than a
+# full week but not on every single query.
+FAILED_CHECK_BACKOFF = 6 * 3600
+# Kept short: this runs in front of a user's question, so a hanging network is
+# worse than stale data.
+CHECK_TIMEOUT = 5
 
 SOURCES = [
     "ig-en/ig-en_expanded.json",
@@ -107,21 +127,27 @@ def norm(s):
 
 # ---------------------------------------------------------------- fetching
 
-def _get(url, binary=False):
-    req = urllib.request.Request(url, headers={"User-Agent": "igbo-skill"})
-    with urllib.request.urlopen(req, timeout=120) as r:
+def _get(url, binary=False, timeout=120):
+    headers = {"User-Agent": "igbo-skill"}
+    # The unauthenticated GitHub API allows 60 requests/hour per IP, which CI
+    # runners share and exhaust. Use a token when the environment offers one.
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token and url.startswith("https://api.github.com/"):
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=timeout) as r:
         data = r.read()
     return data if binary else data.decode("utf-8")
 
 
-def upstream_sha(ref=DEFAULT_REF):
+def upstream_sha(ref=DEFAULT_REF, timeout=120):
     """Newest commit touching src/dictionaries upstream, or None if the GitHub
     API is unreachable or rate-limited (unauthenticated: 60 requests/hour)."""
     url = (f"https://api.github.com/repos/{UPSTREAM}/commits"
            f"?path={DICT_PATH}&sha={ref}&per_page=1")
     try:
-        commits = json.loads(_get(url))
-    except (urllib.error.URLError, ValueError, TimeoutError):
+        commits = json.loads(_get(url, timeout=timeout))
+    except (urllib.error.URLError, ValueError, TimeoutError, OSError):
         return None
     return commits[0]["sha"] if commits else None
 
@@ -154,6 +180,7 @@ def build(repo=None, ref=DEFAULT_REF):
             sys.exit(f"error: {dic} not found (is --repo an igbo_api checkout?)")
         source = f"local:{os.path.abspath(repo)}"
         sha = None
+        ref = None
     else:
         print(f"(downloading dictionaries from {UPSTREAM}@{ref} — one-time step)",
               file=sys.stderr)
@@ -163,7 +190,7 @@ def build(repo=None, ref=DEFAULT_REF):
         sha = upstream_sha(ref)
 
     try:
-        _compile(dic, source, sha)
+        _compile(dic, source, sha, ref)
     finally:
         if tmp:
             _rmtree(tmp)
@@ -178,7 +205,7 @@ def _rmtree(path):
     os.rmdir(path)
 
 
-def _compile(dic, source, sha):
+def _compile(dic, source, sha, ref):
     def load(rel):
         with open(os.path.join(dic, rel.replace("/", os.sep)), encoding="utf-8") as f:
             return json.load(f)
@@ -256,7 +283,18 @@ def _compile(dic, source, sha):
              norm(ch.get("pro") or ""), ch.get("form") or "", ch.get("defs") or ""),
         )
 
-    for k, v in (("source", source), ("sha", sha or "")):
+    now = time.time()
+    meta = {
+        "source": source,
+        "ref": ref or "",
+        "sha": sha or "",
+        # Truncate rather than round: a timestamp rounded up sits in the
+        # future, which reads back as a negative age.
+        "built_at": f"{int(now)}",
+        # Local builds are never auto-refreshed, so they get no due date.
+        "next_check": "" if source.startswith("local:") else f"{int(now + MAX_AGE_DAYS * 86400)}",
+    }
+    for k, v in meta.items():
         db.execute("INSERT INTO meta VALUES(?,?)", (k, v))
 
     db.executescript(
@@ -292,10 +330,89 @@ def parse_ts_array(body):
 # ---------------------------------------------------------------- queries
 
 def connect():
-    """Open the DB, downloading and compiling it first if it does not exist."""
+    """Open the DB, building it if absent and refreshing it if it has aged out.
+
+    The age check must never be the reason a question goes unanswered: if
+    upstream cannot be reached, we say so on stderr and serve the stale data.
+    """
     if not os.path.exists(DB_PATH):
         build()
+        return sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(DB_PATH)
+    if _check_due(db):
+        db = _refresh_if_stale(db)
+    return db
+
+
+def _check_due(db):
+    if os.environ.get("IGBO_SKILL_NO_AUTO_UPDATE"):
+        return False
+    if MAX_AGE_DAYS <= 0:
+        return False
+    source = meta_get(db, "source") or ""
+    if source.startswith("local:"):
+        return False  # the user pinned a checkout; its freshness is theirs to manage
+    due = meta_get(db, "next_check")
+    if not due:
+        return True  # built before this field existed, or never checked
+    try:
+        return time.time() >= float(due)
+    except ValueError:
+        return True
+
+
+def _refresh_if_stale(db):
+    """Ask upstream whether the dictionaries moved; rebuild only if they did."""
+    ref = meta_get(db, "ref") or DEFAULT_REF
+    sha = meta_get(db, "sha")
+    age = _age_days(meta_get(db, "built_at"))
+    age_note = f"{age:.0f} days old" if age is not None else "of unknown age"
+    print(f"(dictionary data is {age_note} — checking {UPSTREAM} for updates)",
+          file=sys.stderr)
+
+    latest = upstream_sha(ref, timeout=CHECK_TIMEOUT)
+    if latest is None:
+        print("(could not reach GitHub — continuing with the data on disk)",
+              file=sys.stderr)
+        _set_next_check(db, time.time() + FAILED_CHECK_BACKOFF)
+        return db
+    if latest == sha:
+        print("(already up to date)", file=sys.stderr)
+        _set_next_check(db, time.time() + MAX_AGE_DAYS * 86400, verified=True)
+        return db
+
+    print(f"(upstream changed {(sha or 'unknown')[:8]} -> {latest[:8]} — rebuilding)",
+          file=sys.stderr)
+    db.close()
+    try:
+        build(ref=ref)
+    except SystemExit:
+        # A download that fails midway must not leave the user with nothing.
+        print("(rebuild failed — continuing with the data on disk)", file=sys.stderr)
+        db = sqlite3.connect(DB_PATH)
+        _set_next_check(db, time.time() + FAILED_CHECK_BACKOFF)
+        return db
     return sqlite3.connect(DB_PATH)
+
+
+def _set_next_check(db, when, verified=False):
+    try:
+        db.execute("INSERT OR REPLACE INTO meta VALUES('next_check', ?)",
+                   (f"{int(when)}",))
+        if verified:
+            # Distinct from built_at: data can be old yet confirmed current.
+            db.execute("INSERT OR REPLACE INTO meta VALUES('verified_at', ?)",
+                       (f"{int(time.time())}",))
+        db.commit()
+    except sqlite3.OperationalError:
+        pass  # read-only database; the check simply runs again next time
+
+
+def _age_days(built_at):
+    try:
+        return (time.time() - float(built_at)) / 86400
+    except (TypeError, ValueError):
+        return None
 
 
 def meta_get(db, key):
@@ -455,22 +572,32 @@ def cmd_stats(db):
     sha = meta_get(db, "sha")
     if sha:
         print(f"sha: {sha}")
+    age = _age_days(meta_get(db, "built_at"))
+    if age is not None:
+        print(f"age: {age:.1f} days")
+    verified = _age_days(meta_get(db, "verified_at"))
+    if verified is not None:
+        print(f"verified against upstream: {verified:.1f} days ago")
 
 
 def cmd_update(db, ref=DEFAULT_REF):
     """Rebuild only if upstream's dictionaries moved since the DB was built."""
     source, sha = meta_get(db, "source"), meta_get(db, "sha")
-    db.close()
     if source and source.startswith("local:"):
+        db.close()
         print(f"database was built from {source}; rebuild with:"
               f"\n  igbo.py build --repo {source[len('local:'):]}")
         return
     latest = upstream_sha(ref)
     if latest is None:
+        db.close()
         sys.exit("error: could not reach the GitHub API to check for updates")
     if sha and sha == latest:
+        _set_next_check(db, time.time() + MAX_AGE_DAYS * 86400, verified=True)
+        db.close()
         print(f"up to date ({UPSTREAM}@{ref} {sha[:8]})")
         return
+    db.close()
     print(f"upstream dictionaries changed ({(sha or 'unknown')[:8]} -> {latest[:8]});"
           " rebuilding")
     build(ref=ref)
@@ -497,6 +624,10 @@ def main():
             del rest[i:i + 2]
         build(repo=repo, ref=ref)
         return
+
+    if cmd == "update":
+        # `update` does its own check; don't let connect() spend a second one.
+        os.environ["IGBO_SKILL_NO_AUTO_UPDATE"] = "1"
 
     db = connect()
     query = " ".join(rest)

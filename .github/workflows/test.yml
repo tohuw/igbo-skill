@@ -25,6 +25,10 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Run tests
+        # The suite queries the GitHub API for the upstream commit; runners
+        # share an IP and would exhaust the 60/hour unauthenticated limit.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python -m unittest discover tests -v
 
   manifests:

@@ -9,9 +9,11 @@ instead (useful offline).
 """
 
 import os
+import sqlite3
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 CLI = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -21,8 +23,16 @@ _TMP = tempfile.mkdtemp(prefix="igbo-skill-test-")
 DB = os.path.join(_TMP, "igbo.db")
 
 
-def run_cli(*args):
-    env = dict(os.environ, IGBO_SKILL_DB=DB, PYTHONIOENCODING="utf-8")
+def run_cli(*args, **overrides):
+    """Run the CLI. Keyword args become environment overrides; the age check is
+    off by default so ordinary tests never touch the network."""
+    env = dict(os.environ, IGBO_SKILL_DB=DB, PYTHONIOENCODING="utf-8",
+               IGBO_SKILL_NO_AUTO_UPDATE="1")
+    for key, value in overrides.items():
+        if value is None:
+            env.pop(key, None)
+        else:
+            env[key] = value
     proc = subprocess.run(
         [sys.executable, CLI, *args],
         capture_output=True, text=True, encoding="utf-8", env=env, timeout=300,
@@ -30,7 +40,27 @@ def run_cli(*args):
     if proc.returncode != 0:
         raise AssertionError(
             f"igbo.py {' '.join(args)} exited {proc.returncode}\n{proc.stderr}")
-    return proc.stdout
+    return proc.stdout + proc.stderr
+
+
+def meta(key, db=DB):
+    # Note: `with sqlite3.connect(...)` commits but does not close, and an open
+    # handle stops Windows deleting the file. Close explicitly.
+    conn = sqlite3.connect(db)
+    try:
+        row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+    finally:
+        conn.close()
+    return row[0] if row else None
+
+
+def set_meta(key, value, db=DB):
+    conn = sqlite3.connect(db)
+    try:
+        conn.execute("INSERT OR REPLACE INTO meta VALUES(?,?)", (key, str(value)))
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def parse_stats(output):
@@ -111,6 +141,103 @@ class IgboCliTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
         self.assertIn("igbo.py lookup", proc.stdout)
         self.assertFalse(os.path.exists(os.path.join(_TMP, "absent.db")))
+
+
+# A repo slug that resolves to a 404 from the GitHub API, so the "cannot reach
+# upstream" path is exercised deterministically instead of by pulling the plug.
+UNREACHABLE = "tohuw/igbo-skill-no-such-repo-a1b2c3"
+
+DAY = 86400
+
+
+class AutoUpdateTest(unittest.TestCase):
+    """The age check in front of every query."""
+
+    @classmethod
+    def setUpClass(cls):
+        if not os.path.exists(DB):
+            run_cli("stats")
+
+    def setUp(self):
+        self._saved = meta("next_check")
+
+    def tearDown(self):
+        if self._saved is not None:
+            set_meta("next_check", self._saved)
+
+    def test_build_stamps_age_and_a_due_date(self):
+        built_at = float(meta("built_at"))
+        self.assertLess(abs(time.time() - built_at), 1800)
+        due = float(self._saved)
+        self.assertAlmostEqual(due - built_at, 7 * DAY, delta=120)
+
+    def test_stats_reports_age(self):
+        self.assertRegex(run_cli("stats"), r"age: \d+\.\d days")
+
+    def test_fresh_data_is_not_checked_against_upstream(self):
+        set_meta("next_check", time.time() + 7 * DAY)
+        output = run_cli("lookup", "udu",
+                         IGBO_SKILL_NO_AUTO_UPDATE=None,
+                         IGBO_SKILL_UPSTREAM=UNREACHABLE)
+        self.assertNotIn("checking", output)
+        self.assertIn("earthenware pot", output)
+
+    def test_data_older_than_a_week_checks_upstream(self):
+        built = time.time() - 9 * DAY
+        set_meta("built_at", built)
+        set_meta("next_check", time.time() - 1)
+        try:
+            output = run_cli("lookup", "udu", IGBO_SKILL_NO_AUTO_UPDATE=None)
+            self.assertIn("9 days old", output)
+            self.assertIn("earthenware pot", output)  # answered regardless
+            # Having checked, it should not check again for another week.
+            self.assertGreater(float(meta("next_check")), time.time() + 6 * DAY)
+            # Old data confirmed current is recorded separately from its age,
+            # so `stats` can say "9 days old, verified today".
+            self.assertLess(time.time() - float(meta("verified_at")), 300)
+            stats = run_cli("stats")
+            self.assertIn("age: 9.0 days", stats)
+            self.assertIn("verified against upstream: 0.0 days ago", stats)
+        finally:
+            set_meta("built_at", built)
+
+    def test_stale_data_still_answers_when_upstream_is_unreachable(self):
+        set_meta("next_check", time.time() - 1)
+        output = run_cli("lookup", "udu",
+                         IGBO_SKILL_NO_AUTO_UPDATE=None,
+                         IGBO_SKILL_UPSTREAM=UNREACHABLE)
+        self.assertIn("continuing with the data on disk", output)
+        self.assertIn("earthenware pot", output)
+        # Backs off hours, not a full week, so a transient outage self-heals.
+        due = float(meta("next_check")) - time.time()
+        self.assertGreater(due, 3600)
+        self.assertLess(due, DAY)
+
+    def test_age_check_can_be_disabled(self):
+        set_meta("next_check", 0)
+        run_cli("lookup", "udu", IGBO_SKILL_UPSTREAM=UNREACHABLE)
+        self.assertEqual(float(meta("next_check")), 0)
+
+    def test_max_age_of_zero_disables_the_check(self):
+        set_meta("next_check", 0)
+        run_cli("lookup", "udu",
+                IGBO_SKILL_NO_AUTO_UPDATE=None,
+                IGBO_SKILL_MAX_AGE_DAYS="0",
+                IGBO_SKILL_UPSTREAM=UNREACHABLE)
+        self.assertEqual(float(meta("next_check")), 0)
+
+    def test_local_builds_are_never_auto_refreshed(self):
+        saved_source = meta("source")
+        try:
+            set_meta("source", "local:/somewhere/igbo_api")
+            set_meta("next_check", 0)
+            output = run_cli("lookup", "udu",
+                             IGBO_SKILL_NO_AUTO_UPDATE=None,
+                             IGBO_SKILL_UPSTREAM=UNREACHABLE)
+            self.assertNotIn("checking", output)
+            self.assertEqual(float(meta("next_check")), 0)
+        finally:
+            set_meta("source", saved_source)
 
 
 if __name__ == "__main__":

@@ -17,6 +17,12 @@ On first use it downloads the dictionaries from
 into a local SQLite database (~19 MB, a few seconds). Every run after that is
 offline. No API key, no setup.
 
+Once the data passes a week old, the next query checks upstream and rebuilds
+only if the dictionaries actually changed — so staleness costs one HTTP
+round-trip a week, not a download. If that check fails (offline, rate-limited),
+the query is still answered from the data on disk; you'll see a note on stderr.
+Nothing you need to manage: `update` is only for forcing it early.
+
 | command | purpose |
 |---|---|
 | `lookup <igbo>` | Igbo → English, diacritic-insensitive; full entries (word class, definitions, variations, stems, examples) |
@@ -25,8 +31,8 @@ offline. No API key, no setup.
 | `examples <query>` | search the 1.7k attested bilingual sentences (matches either language) |
 | `gloss "<igbo sentence>"` | per-chunk gloss, greedy longest phrase match; handles n'/m' elision |
 | `nsibidi <query>` | Nsibidi characters by symbol, pronunciation, or meaning |
-| `stats` | table counts and which upstream commit the data came from |
-| `update` | rebuild if the upstream dictionaries have changed |
+| `stats` | table counts, which upstream commit the data came from, and its age |
+| `update` | check upstream now rather than waiting for the weekly check |
 | `build [--repo PATH] [--ref REF]` | force a rebuild; `--repo` reads a local igbo_api checkout instead of the network |
 
 Run several lookups in one shell call (`cmd1; cmd2; ...`) to save round-trips.
@@ -90,6 +96,9 @@ The compiled database lives outside this skill directory (under the platform
 cache dir, `$CLAUDE_PLUGIN_DATA` when installed as a plugin, or `$IGBO_SKILL_DB`
 if set) so plugin updates do not discard it. Delete it any time to force a clean
 rebuild.
+
+`IGBO_SKILL_MAX_AGE_DAYS` changes the staleness threshold (`0` disables the
+check); `IGBO_SKILL_NO_AUTO_UPDATE` turns it off outright.
 
 The hosted https://igboapi.com API additionally offers audio pronunciations and
 dialect data behind an API key, but this skill is offline by design after the

@@ -43,8 +43,22 @@ On first use the CLI downloads the dictionary files from
 `nkowaokwu/igbo_api@master` and compiles them into a local SQLite database
 (~19 MB, about two seconds). Every query after that is offline.
 
-`igbo.py stats` reports which upstream commit the data came from, and
-`igbo.py update` rebuilds only if those files have changed upstream.
+**It keeps itself current.** Once the data is more than a week old, the next
+query asks GitHub whether `src/dictionaries` has moved and rebuilds only if it
+has. The usual cost of being out of date is therefore one HTTP round-trip a
+week, not a re-download. Three properties worth knowing:
+
+- **A failed check never fails your query.** Offline or rate-limited, the CLI
+  says so on stderr and answers from the data on disk, then retries in six
+  hours rather than waiting out another week.
+- **It checks once, not once per command.** The due date is stored in the
+  database, so a burst of lookups costs a single check.
+- **`--repo` builds are left alone.** If you pointed it at a local checkout,
+  its freshness is yours to manage.
+
+Tune with `IGBO_SKILL_MAX_AGE_DAYS` (default `7`, `0` disables) or switch it off
+entirely with `IGBO_SKILL_NO_AUTO_UPDATE=1`. `igbo.py stats` shows the data's
+age and when it was last verified; `igbo.py update` forces a check now.
 
 The database is stored **outside** the skill directory — under
 `$CLAUDE_PLUGIN_DATA` when installed as a plugin, otherwise your platform cache
@@ -62,8 +76,8 @@ python3 skills/igbo/scripts/igbo.py search udu                  # substring sear
 python3 skills/igbo/scripts/igbo.py examples market             # attested sentences
 python3 skills/igbo/scripts/igbo.py gloss "Òbìàgèlì bì n'Àba"   # per-word gloss
 python3 skills/igbo/scripts/igbo.py nsibidi mud                 # Nsibidi characters
-python3 skills/igbo/scripts/igbo.py stats                       # counts + provenance
-python3 skills/igbo/scripts/igbo.py update                      # refresh from upstream
+python3 skills/igbo/scripts/igbo.py stats                       # counts, provenance, age
+python3 skills/igbo/scripts/igbo.py update                      # check upstream now
 ```
 
 Lookups are diacritic-insensitive, so `lookup udu` finds `ùdù`. Answers give the
