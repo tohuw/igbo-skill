@@ -31,10 +31,16 @@ cp -r igbo-skill/.agents/skills/igbo ~/.agents/skills/igbo   # Codex, user scope
 cp -r igbo-skill/.agents/skills/igbo ~/.claude/skills/igbo   # Claude Code, no plugin
 ```
 
-**Or just clone it and open an agent inside** — no install step either way.
-Codex scans `.agents/skills` up to the repo root, and the checked-in
-`.claude/settings.json` registers this repo as a plugin marketplace, so Claude
-Code offers the skill once you trust the folder.
+**Codex also works with no install at all**: clone the repo and open Codex
+inside it. Codex scans `.agents/skills` from your working directory up to the
+repo root, so it finds the skill in place.
+
+Claude Code does not scan `.agents/skills`, so use the plugin above. The repo
+does ship a `.claude/settings.json` declaring itself as a plugin marketplace,
+which is the documented way for a project to offer plugins to anyone who trusts
+the folder — but that path only engages in an interactive session, and I have
+not been able to confirm it end to end. Treat the plugin install as the
+supported route.
 
 Requires **Python 3.8+**. Nothing else — no pip install, no API key, no Node.
 
