@@ -62,7 +62,7 @@ for _stream in (sys.stdout, sys.stderr):
 # Kept in step with .claude-plugin/plugin.json by a CI check. It is duplicated
 # here because the skill directory is frequently copied on its own, without the
 # plugin manifest, and a bug report is worthless without a version.
-VERSION = "2026.08.16.6"
+VERSION = "2026.08.16.7"
 
 SKILL_REPO = "tohuw/igbo-skill"
 UPSTREAM = os.environ.get("IGBO_SKILL_UPSTREAM") or "nkowaokwu/igbo_api"

@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "igbo-skill",
   "displayName": "Igbo Dictionary",
-  "version": "2026.08.16.6",
+  "version": "2026.08.16.7",
   "description": "Igbo dictionary and translation assistant backed by the Igbo API dataset. Makes coding agents look every word up instead of guessing.",
   "author": {
     "name": "tohuw",

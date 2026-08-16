@@ -147,6 +147,11 @@ first, so reports don't land on somebody's personal copy. Without `gh` it writes
 a `igbo-feedback-*.md` you can paste, with the URL and what to click. It always
 shows you the exact text first, and never files anything without a yes.
 
+No GitHub account? It'll offer to walk you through making one, because a filed
+correction reaches everyone who uses the dictionary later and a message in a chat
+window doesn't. If you'd rather not, [Nkọwa okwu's volunteer
+channel](https://nkowaokwu.com/volunteer) takes feedback without an account.
+
 Declining is fine and it should drop it after asking once.
 
 ## A note on the data

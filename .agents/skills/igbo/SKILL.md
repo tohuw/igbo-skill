@@ -101,9 +101,17 @@ under their name. Then, in this order:
   and give them the URL.
 - **`gh` present but not authenticated** — hand them `gh auth login` to run
   themselves (it is interactive), or fall back to the file below.
-- **`gh` missing** — ask first whether they have a GitHub account. Only if they
-  do, offer to install it (`winget install GitHub.cli`, `brew install gh`, or
-  their package manager). If they have no account and don't want one, drop it.
+- **`gh` missing** — ask first whether they have a GitHub account. If they do,
+  offer to install it (`winget install GitHub.cli`, `brew install gh`, or their
+  package manager).
+- **No GitHub account** — don't drop it there. Their correction is worth
+  preserving, and they may not realise how small the step is: offer to walk them
+  through creating one at https://github.com/signup (free, a couple of minutes,
+  needs only an email). Say plainly why it's worth it — a filed correction
+  reaches every future user of the dictionary, where a comment in a chat window
+  does not. If they'd rather not, that is completely fine: write the file below,
+  and point them at https://nkowaokwu.com/volunteer where they can raise it with
+  the maintainers directly without an account.
 - **Anything declined, or no account** — write the report to
   `igbo-feedback-<slug>.md` in the working directory. That file must stand on its
   own: the issue title, the full body ready to paste, the exact URL to open, and
