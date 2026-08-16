@@ -101,6 +101,7 @@ python3 .agents/skills/igbo/scripts/igbo.py gloss "Òbìàgèlì bì n'Àba"   #
 python3 .agents/skills/igbo/scripts/igbo.py nsibidi mud                 # Nsibidi characters
 python3 .agents/skills/igbo/scripts/igbo.py stats                       # counts, provenance, age
 python3 .agents/skills/igbo/scripts/igbo.py update                      # check upstream now
+python3 .agents/skills/igbo/scripts/igbo.py report                      # environment for a bug report
 ```
 
 Lookups are diacritic-insensitive, so `lookup udu` finds `ùdù`. Answers give the
@@ -122,6 +123,31 @@ network the same way a new user does:
 python3 -m unittest discover tests -v
 IGBO_SKILL_TEST_REPO=/path/to/igbo_api python3 -m unittest discover tests  # offline
 ```
+
+## Telling it that it's wrong
+
+Say so — "that's not right", "we don't say it that way". The skill is instructed
+to stop, ask what specifically was wrong, and then re-run the lookups to work
+out *which* thing failed, because the answer determines where the fix belongs:
+
+- **The dictionary had it right and the skill didn't use it** — bad ranking, a
+  mis-chunked gloss, a `[normalized index]` line preferred over a real entry.
+  That's a bug here.
+- **The dictionary is missing it or has it wrong.** That belongs upstream with
+  [Nkọwa okwu](https://github.com/nkowaokwu/igbo_api/issues), where fixing it
+  helps everyone rather than just this tool.
+- **It's a dialect difference.** Often the honest answer. The dataset leans
+  Onitsha/older-source, and "we don't say it that way" usually means your variety
+  differs from the source rather than that anyone is wrong. The skill is told to
+  say so rather than file noise at the maintainers.
+
+If it's worth filing, it offers to do it for you: with `gh` authenticated it
+files the issue and hands you the URL — resolving forks to the real upstream
+first, so reports don't land on somebody's personal copy. Without `gh` it writes
+a `igbo-feedback-*.md` you can paste, with the URL and what to click. It always
+shows you the exact text first, and never files anything without a yes.
+
+Declining is fine and it should drop it after asking once.
 
 ## A note on the data
 

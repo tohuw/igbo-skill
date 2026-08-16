@@ -8,6 +8,7 @@ Set IGBO_SKILL_TEST_REPO=/path/to/igbo_api to build from a local checkout
 instead (useful offline).
 """
 
+import json
 import os
 import sqlite3
 import subprocess
@@ -127,6 +128,29 @@ class IgboCliTest(unittest.TestCase):
 
     def test_nsibidi_lookup_by_meaning(self):
         self.assertIn("ápị̀tị́", run_cli("nsibidi", "mud"))
+
+    def test_report_carries_what_a_bug_report_needs(self):
+        out = run_cli("report")
+        # A report without the data commit is unactionable: the same query
+        # returns different answers across upstream revisions.
+        self.assertRegex(out, r"skill version: \d{4}\.\d{2}\.\d{2}")
+        self.assertIn("data source:", out)
+        self.assertRegex(out, r"data commit:\s+([0-9a-f]{40}|unknown)")
+        self.assertIn("data age:", out)
+        self.assertIn("table counts:", out)
+        self.assertIn("python:", out)
+
+    def test_report_version_matches_the_plugin_manifest(self):
+        # The version is duplicated in igbo.py because the skill directory is
+        # often copied without the manifest. Keep the two honest.
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, ".claude-plugin", "plugin.json"),
+                  encoding="utf-8") as f:
+            manifest = json.load(f)
+        reported = [l.split(": ", 1)[1].strip()
+                    for l in run_cli("report").splitlines()
+                    if l.startswith("skill version:")][0]
+        self.assertEqual(reported, manifest["version"])
 
     def test_unknown_command_fails_loudly(self):
         with self.assertRaises(AssertionError):

@@ -1,0 +1,15 @@
+blank_issues_enabled: true
+contact_links:
+  - name: The dictionary itself is wrong or missing a word
+    url: https://github.com/nkowaokwu/igbo_api/issues/new/choose
+    about: >-
+      Definitions, example sentences, spellings, tone marks and Nsibidi
+      characters are maintained by Nkọwa okwu in the Igbo API project, not here.
+      This repo only queries their data, so corrections to the dictionary belong
+      upstream where they will reach everyone.
+  - name: Talk to the dictionary maintainers
+    url: https://nkowaokwu.com/volunteer
+    about: >-
+      Nkọwa okwu's volunteer and community channel — the best place for
+      questions about the language data, dialect coverage, or contributing
+      entries.

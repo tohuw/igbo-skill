@@ -20,6 +20,7 @@ Usage:
   igbo.py nsibidi <query>             Nsibidi characters by symbol/pron/meaning
   igbo.py stats                       table counts, provenance, data age
   igbo.py update                      rebuild now if upstream dictionaries changed
+  igbo.py report                      environment block to paste into a bug report
   igbo.py build [--repo PATH] [--ref REF]
                                       (re)compile the database; --repo reads a
                                       local igbo_api checkout instead of the
@@ -58,6 +59,12 @@ for _stream in (sys.stdout, sys.stderr):
         except (ValueError, OSError):  # already detached or not a text stream
             pass
 
+# Kept in step with .claude-plugin/plugin.json by a CI check. It is duplicated
+# here because the skill directory is frequently copied on its own, without the
+# plugin manifest, and a bug report is worthless without a version.
+VERSION = "2026.08.16.6"
+
+SKILL_REPO = "tohuw/igbo-skill"
 UPSTREAM = os.environ.get("IGBO_SKILL_UPSTREAM") or "nkowaokwu/igbo_api"
 DICT_PATH = "src/dictionaries"
 DEFAULT_REF = "master"
@@ -580,6 +587,32 @@ def cmd_stats(db):
         print(f"verified against upstream: {verified:.1f} days ago")
 
 
+def cmd_report(db):
+    """Environment block for a bug report.
+
+    Whoever reads the report needs to know which dictionary snapshot produced
+    the answer, not just which version of this tool ran, because the same query
+    gives different results across upstream revisions.
+    """
+    import platform
+
+    print("<!-- igbo-skill environment -->")
+    print(f"skill version: {VERSION}")
+    print(f"data source:   {meta_get(db, 'source') or 'unknown'}")
+    sha = meta_get(db, "sha")
+    print(f"data commit:   {sha or 'unknown'}")
+    age = _age_days(meta_get(db, "built_at"))
+    print(f"data age:      {age:.1f} days" if age is not None else "data age:      unknown")
+    verified = _age_days(meta_get(db, "verified_at"))
+    if verified is not None:
+        print(f"last verified: {verified:.1f} days ago")
+    counts = ", ".join(
+        f"{t}={db.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0]}" for t in TABLES)
+    print(f"table counts:  {counts}")
+    print(f"python:        {platform.python_version()} on {platform.platform()}")
+    print(f"database:      {DB_PATH}")
+
+
 def cmd_update(db, ref=DEFAULT_REF):
     """Rebuild only if upstream's dictionaries moved since the DB was built."""
     source, sha = meta_get(db, "source"), meta_get(db, "sha")
@@ -645,6 +678,8 @@ def main():
         cmd_nsibidi(db, query)
     elif cmd == "stats":
         cmd_stats(db)
+    elif cmd == "report":
+        cmd_report(db)
     elif cmd == "update":
         cmd_update(db, ref)
     else:

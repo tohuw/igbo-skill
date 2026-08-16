@@ -32,6 +32,7 @@ Nothing you need to manage: `update` is only for forcing it early.
 | `gloss "<igbo sentence>"` | per-chunk gloss, greedy longest phrase match; handles n'/m' elision |
 | `nsibidi <query>` | Nsibidi characters by symbol, pronunciation, or meaning |
 | `stats` | table counts, which upstream commit the data came from, and its age |
+| `report` | environment block to paste into a bug report |
 | `update` | check upstream now rather than waiting for the weekly check |
 | `build [--repo PATH] [--ref REF]` | force a rebuild; `--repo` reads a local igbo_api checkout instead of the network |
 
@@ -64,6 +65,55 @@ verified this session via `lookup`/`en`/`examples`.
 1. `gloss "<sentence>"` first. For `???` tokens, strip affixes (see crib) and
    `lookup` the stem; verbs are listed with a leading hyphen (`-ri`, `-gba`).
 2. `examples <key word>` to check idioms — many multi-word entries are idiomatic.
+
+## When the user says the answer is wrong
+
+Take it seriously and work out *what kind* of wrong it is before doing anything
+else. The user is usually a better speaker of Igbo than this dataset is a record
+of it. Do not argue, and do not just re-answer with a different guess.
+
+**1. Get specifics.** Which word or sentence, what you said, what it should be,
+and how they know (native speaker, their dialect, a teacher, a text).
+
+**2. Reproduce against the dataset.** Re-run the exact lookups and classify:
+
+| what you find | cause | where it goes |
+|---|---|---|
+| The right answer *is* in a rich entry or example, but your answer did not use it | this skill surfaced or ranked it badly, or `gloss` chunked wrong | `tohuw/igbo-skill` |
+| The CLI errored, hung, or printed something malformed | this skill | `tohuw/igbo-skill` |
+| The dataset genuinely lacks the word or sense, or records it wrongly | the dictionary data | upstream `nkowaokwu/igbo_api` |
+| The dataset differs because it leans Onitsha/older-source | **usually not a bug** | see below |
+
+**Dialect is not automatically an error.** This is one record of a language with
+real regional variation. "We don't say it that way" most often means the user's
+variety differs from the source — worth saying plainly in your answer, not worth
+filing. File upstream only when a sense is genuinely absent, plainly wrong, or
+misspelled, and name the variety the correction comes from.
+
+**3. Offer to file it, and make it effortless.** Never file anything without
+showing the exact title and body first and getting a clear yes — it goes out
+under their name. Then, in this order:
+
+- **`gh` present and authenticated** (`gh auth status` succeeds) — offer to file
+  it now. Before filing upstream, resolve the real home with
+  `gh repo view <repo> --json isFork,parent`; if it is a fork, file against the
+  parent instead. Then `gh issue create --repo <repo> --title ... --body ...`,
+  and give them the URL.
+- **`gh` present but not authenticated** — hand them `gh auth login` to run
+  themselves (it is interactive), or fall back to the file below.
+- **`gh` missing** — ask first whether they have a GitHub account. Only if they
+  do, offer to install it (`winget install GitHub.cli`, `brew install gh`, or
+  their package manager). If they have no account and don't want one, drop it.
+- **Anything declined, or no account** — write the report to
+  `igbo-feedback-<slug>.md` in the working directory. That file must stand on its
+  own: the issue title, the full body ready to paste, the exact URL to open, and
+  one line saying what to click. Mention they can also reach the dictionary
+  maintainers at https://nkowaokwu.com/volunteer.
+
+**4. Always include** the output of `python3 scripts/igbo.py report`, the exact
+command you ran, and its output. For a data report, name the dialect or region.
+
+Declining any of this is completely fine. Say so once and move on.
 
 ## Orthography
 
