@@ -11,5 +11,6 @@
   "homepage": "https://github.com/tohuw/igbo-skill",
   "repository": "https://github.com/tohuw/igbo-skill",
   "license": "Apache-2.0",
+  "skills": ["./.agents/skills/"],
   "keywords": ["igbo", "dictionary", "translation", "nsibidi", "language", "nigeria"]
 }

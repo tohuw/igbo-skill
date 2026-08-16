@@ -17,7 +17,7 @@ import time
 import unittest
 
 CLI = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                   "skills", "igbo", "scripts", "igbo.py")
+                   ".agents", "skills", "igbo", "scripts", "igbo.py")
 
 _TMP = tempfile.mkdtemp(prefix="igbo-skill-test-")
 DB = os.path.join(_TMP, "igbo.db")

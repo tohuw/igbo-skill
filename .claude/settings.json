@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "igbo-skill": {
+      "source": {
+        "source": "directory",
+        "path": "."
+      }
+    }
+  },
+  "enabledPlugins": {
+    "igbo-skill@igbo-skill": true
+  }
+}

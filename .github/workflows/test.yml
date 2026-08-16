@@ -46,22 +46,32 @@ jobs:
           assert plugin["name"] == "igbo-skill", plugin["name"]
           entry, = market["plugins"]
           assert entry["name"] == plugin["name"], (entry["name"], plugin["name"])
-          assert pathlib.Path("skills/igbo/SKILL.md").is_file(), "skill missing"
-          assert pathlib.Path("skills/igbo/scripts/igbo.py").is_file(), "cli missing"
+          assert pathlib.Path(".agents/skills/igbo/SKILL.md").is_file(), "skill missing"
+          assert pathlib.Path(".agents/skills/igbo/scripts/igbo.py").is_file(), "cli missing"
 
-          frontmatter = pathlib.Path("skills/igbo/SKILL.md").read_text().split("---")[1]
+          frontmatter = pathlib.Path(".agents/skills/igbo/SKILL.md").read_text().split("---")[1]
           assert "name: igbo" in frontmatter, "SKILL.md frontmatter needs a name"
           assert "description:" in frontmatter, "SKILL.md frontmatter needs a description"
           print("manifests OK")
           PY
 
-      - name: Verify the agent-discovery symlinks resolve
-        # These are committed as mode-120000 entries and cannot be checked out
-        # on Windows without Developer Mode, so Linux CI is what actually
-        # proves Codex and Claude Code will find the skill in a clone.
+      - name: Verify the skill is a real directory, not a symlink
+        # A symlink here checks out as a 17-byte text file on Windows without
+        # Developer Mode, so agents find a file where a skill should be. Keep
+        # this path plain so a clone behaves identically on every platform.
         run: |
-          test -L .agents/skills/igbo || { echo ".agents/skills/igbo is not a symlink"; exit 1; }
-          test -L .claude/skills/igbo || { echo ".claude/skills/igbo is not a symlink"; exit 1; }
+          for p in .agents/skills/igbo .agents/skills/igbo/scripts; do
+            test -d "$p" || { echo "$p is not a directory"; exit 1; }
+            test -L "$p" && { echo "$p is a symlink; see the Windows checkout problem"; exit 1; }
+          done
           test -f .agents/skills/igbo/SKILL.md
-          test -f .claude/skills/igbo/scripts/igbo.py
-          echo "symlinks OK"
+          test -f .agents/skills/igbo/scripts/igbo.py
+          # The plugin manifest must point at wherever the skill actually is.
+          python -c "
+          import json, pathlib
+          skills = json.loads(pathlib.Path('.claude-plugin/plugin.json').read_text())['skills']
+          for entry in skills:
+              root = pathlib.Path(entry.lstrip('./') or '.')
+              assert (root / 'igbo' / 'SKILL.md').is_file(), f'{entry} does not contain the skill'
+          print('layout OK')
+          "

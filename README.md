@@ -27,15 +27,21 @@ shows its work.
 
 ```bash
 git clone https://github.com/tohuw/igbo-skill
-cp -r igbo-skill/skills/igbo ~/.agents/skills/igbo     # Codex, user scope
-cp -r igbo-skill/skills/igbo ~/.claude/skills/igbo     # Claude Code, no plugin
+cp -r igbo-skill/.agents/skills/igbo ~/.agents/skills/igbo   # Codex, user scope
+cp -r igbo-skill/.agents/skills/igbo ~/.claude/skills/igbo   # Claude Code, no plugin
 ```
 
-Cloning the repo and opening an agent *inside it* also works with no install
-step — `.agents/skills/igbo` and `.claude/skills/igbo` are symlinks to
-`skills/igbo`, so both agents discover it at project scope.
+**Or just clone it and open an agent inside** — no install step either way.
+Codex scans `.agents/skills` up to the repo root, and the checked-in
+`.claude/settings.json` registers this repo as a plugin marketplace, so Claude
+Code offers the skill once you trust the folder.
 
 Requires **Python 3.8+**. Nothing else — no pip install, no API key, no Node.
+
+> The skill is a plain directory at `.agents/skills/igbo`, deliberately not a
+> symlink. Git checks symlinks out as ordinary text files on Windows unless
+> Developer Mode is on, which would leave a 17-byte file where the skill should
+> be — so a clone behaves identically on every platform.
 
 ## How the data gets there
 
@@ -70,14 +76,14 @@ with `$IGBO_SKILL_DB`. That way a plugin update doesn't throw the database away.
 No agent required:
 
 ```bash
-python3 skills/igbo/scripts/igbo.py lookup ùdù                  # Igbo → English
-python3 skills/igbo/scripts/igbo.py en drum                     # English → Igbo
-python3 skills/igbo/scripts/igbo.py search udu                  # substring search
-python3 skills/igbo/scripts/igbo.py examples market             # attested sentences
-python3 skills/igbo/scripts/igbo.py gloss "Òbìàgèlì bì n'Àba"   # per-word gloss
-python3 skills/igbo/scripts/igbo.py nsibidi mud                 # Nsibidi characters
-python3 skills/igbo/scripts/igbo.py stats                       # counts, provenance, age
-python3 skills/igbo/scripts/igbo.py update                      # check upstream now
+python3 .agents/skills/igbo/scripts/igbo.py lookup ùdù                  # Igbo → English
+python3 .agents/skills/igbo/scripts/igbo.py en drum                     # English → Igbo
+python3 .agents/skills/igbo/scripts/igbo.py search udu                  # substring search
+python3 .agents/skills/igbo/scripts/igbo.py examples market             # attested sentences
+python3 .agents/skills/igbo/scripts/igbo.py gloss "Òbìàgèlì bì n'Àba"   # per-word gloss
+python3 .agents/skills/igbo/scripts/igbo.py nsibidi mud                 # Nsibidi characters
+python3 .agents/skills/igbo/scripts/igbo.py stats                       # counts, provenance, age
+python3 .agents/skills/igbo/scripts/igbo.py update                      # check upstream now
 ```
 
 Lookups are diacritic-insensitive, so `lookup udu` finds `ùdù`. Answers give the
@@ -86,8 +92,8 @@ tone-marked form from the dictionary.
 Working from a local `igbo_api` checkout instead of the network:
 
 ```bash
-python3 skills/igbo/scripts/igbo.py build --repo /path/to/igbo_api
-python3 skills/igbo/scripts/igbo.py build --ref some-branch     # or pin a ref
+python3 .agents/skills/igbo/scripts/igbo.py build --repo /path/to/igbo_api
+python3 .agents/skills/igbo/scripts/igbo.py build --ref some-branch     # or pin a ref
 ```
 
 ## Tests
