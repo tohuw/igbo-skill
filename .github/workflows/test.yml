@@ -1,0 +1,52 @@
+name: test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    # Weekly, so we notice if upstream moves or renames a dictionary file.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is not optional here: it defaults stdout to cp1252, which
+        # cannot encode Igbo dot-below vowels.
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ['3.9', '3.13']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run tests
+        run: python -m unittest discover tests -v
+
+  manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate plugin manifests parse and agree
+        run: |
+          python - <<'PY'
+          import json, pathlib, sys
+
+          plugin = json.loads(pathlib.Path(".claude-plugin/plugin.json").read_text())
+          market = json.loads(pathlib.Path(".claude-plugin/marketplace.json").read_text())
+
+          assert plugin["name"] == "igbo-skill", plugin["name"]
+          entry, = market["plugins"]
+          assert entry["name"] == plugin["name"], (entry["name"], plugin["name"])
+          assert pathlib.Path("skills/igbo/SKILL.md").is_file(), "skill missing"
+          assert pathlib.Path("skills/igbo/scripts/igbo.py").is_file(), "cli missing"
+
+          frontmatter = pathlib.Path("skills/igbo/SKILL.md").read_text().split("---")[1]
+          assert "name: igbo" in frontmatter, "SKILL.md frontmatter needs a name"
+          assert "description:" in frontmatter, "SKILL.md frontmatter needs a description"
+          print("manifests OK")
+          PY

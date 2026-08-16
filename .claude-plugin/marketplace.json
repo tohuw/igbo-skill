@@ -1,0 +1,15 @@
+{
+  "name": "igbo-skill",
+  "description": "Igbo language tooling for coding agents, built on the open Igbo API dataset.",
+  "owner": {
+    "name": "tohuw",
+    "url": "https://github.com/tohuw"
+  },
+  "plugins": [
+    {
+      "name": "igbo-skill",
+      "source": "./",
+      "description": "Igbo dictionary and translation assistant backed by the Igbo API dataset (8k+ headwords, 1.7k attested bilingual examples, Nsibidi)."
+    }
+  ]
+}

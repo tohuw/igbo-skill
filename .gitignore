@@ -1,0 +1,13 @@
+# compiled dictionary database, if IGBO_SKILL_DB points inside the repo
+*.db
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/

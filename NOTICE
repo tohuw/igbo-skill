@@ -1,0 +1,25 @@
+igbo-skill
+Copyright 2026 igbo-skill contributors
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+------------------------------------------------------------------------------
+Third-party data
+------------------------------------------------------------------------------
+
+This software downloads and compiles dictionary data from the Igbo API project:
+
+    Igbo API — https://github.com/nkowaokwu/igbo_api
+    Copyright 2023 Nkọwa okwu
+    Licensed under the Apache License, Version 2.0
+
+That data is fetched at runtime from the upstream repository and is NOT
+redistributed in this repository. It is compiled locally, unmodified in
+content, into a SQLite database for offline lookup.
+
+The Igbo language dictionary content itself — headwords, definitions, example
+sentences, and the Nsibidi character set — is the work of Nkọwa okwu and the
+Igbo API contributors. Please support that project:
+
+    https://nkowaokwu.com
+    https://igboapi.com

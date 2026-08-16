@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "igbo-skill",
+  "displayName": "Igbo Dictionary",
+  "version": "2026.08.16",
+  "description": "Igbo dictionary and translation assistant backed by the Igbo API dataset. Makes coding agents look every word up instead of guessing.",
+  "author": {
+    "name": "tohuw",
+    "url": "https://github.com/tohuw"
+  },
+  "homepage": "https://github.com/tohuw/igbo-skill",
+  "repository": "https://github.com/tohuw/igbo-skill",
+  "license": "Apache-2.0",
+  "keywords": ["igbo", "dictionary", "translation", "nsibidi", "language", "nigeria"]
+}
