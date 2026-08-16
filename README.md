@@ -19,9 +19,14 @@ shows its work.
 **Claude Code** (plugin):
 
 ```
-/plugin marketplace add tohuw/igbo-skill
+/plugin marketplace add https://github.com/tohuw/igbo-skill
 /plugin install igbo-skill@igbo-skill
 ```
+
+Use the full HTTPS URL, not the `tohuw/igbo-skill` shorthand. The shorthand
+clones over SSH, which fails with `Host key verification failed` on any machine
+that has never connected to github.com over SSH — a fresh checkout of a public
+repo has no reason to have done so.
 
 **Codex CLI**, or any agent that reads the open `SKILL.md` format:
 
