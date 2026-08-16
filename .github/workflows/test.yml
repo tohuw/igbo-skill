@@ -54,3 +54,14 @@ jobs:
           assert "description:" in frontmatter, "SKILL.md frontmatter needs a description"
           print("manifests OK")
           PY
+
+      - name: Verify the agent-discovery symlinks resolve
+        # These are committed as mode-120000 entries and cannot be checked out
+        # on Windows without Developer Mode, so Linux CI is what actually
+        # proves Codex and Claude Code will find the skill in a clone.
+        run: |
+          test -L .agents/skills/igbo || { echo ".agents/skills/igbo is not a symlink"; exit 1; }
+          test -L .claude/skills/igbo || { echo ".claude/skills/igbo is not a symlink"; exit 1; }
+          test -f .agents/skills/igbo/SKILL.md
+          test -f .claude/skills/igbo/scripts/igbo.py
+          echo "symlinks OK"
