@@ -9,6 +9,12 @@ This skill makes the agent look every word up in the
 headwords, 1.7k attested bilingual example sentences, 267k lookup keys, and the
 5.3k-character Nsibidi dictionary — and refuse to emit Igbo it has not verified.
 
+**The dictionary is the work of [Nkọwa okwu](https://nkowaokwu.com), not of this
+repo.** Every headword, definition, example sentence and Nsibidi character here
+was compiled by that project and its contributors. This repo ships no dictionary
+data of its own — it downloads theirs and puts a lookup discipline in front of
+it. If this is useful to you, the thanks and the support belong upstream.
+
 > **You:** Translate "Chiamaka, come play your udu!" as a sister would say it, affectionately.
 
 The skill triggers automatically, checks each word against the dictionary, and
